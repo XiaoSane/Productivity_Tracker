@@ -1,7 +1,3 @@
-<<<<<<< HEAD
-# Productivity_Tracker
-Personal productivity tracker — tasks, exams, study sessions &amp; analytics stored in your own Google Drive via Sheets. Google OAuth, zero external database.
-=======
 # Productivity Tracker
 
 A responsive, full-stack personal productivity and exam preparation tracking system. Designed for complete personal data privacy, it is backed directly by your private **Google Drive & Google Sheets** via OAuth 2.0, with an automatic offline fallback (**Local JSON Database**) for development.
@@ -165,4 +161,3 @@ src/
 - **Formula Injection Neutralization**: All spreadsheet cell writes sanitize strings beginning with `=`, `+`, `-`, or `@`.
 - **Mass-Assignment Defense**: Entity updates pass through strict field allowlists.
 - **Safe Local Writes**: The local development store uses atomic rename operations to prevent file corruption.
->>>>>>> ff3d5ef (Initial Commit)
