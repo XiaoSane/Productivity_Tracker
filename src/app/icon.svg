@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
+  <defs>
+    <linearGradient id="starBg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#2563eb"/>
+      <stop offset="100%" stop-color="#4f46e5"/>
+    </linearGradient>
+    <filter id="starGlow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="1" stdDeviation="0.8" flood-color="#000" flood-opacity="0.3"/>
+    </filter>
+  </defs>
+  <rect width="32" height="32" rx="7" fill="url(#starBg)"/>
+  <polygon 
+    points="16,4 19.5,11.5 27.5,12.6 21.7,18.2 23.1,26.2 16,22.4 8.9,26.2 10.3,18.2 4.5,12.6 12.5,11.5"
+    fill="#fbbf24"
+    stroke="#f59e0b"
+    stroke-width="0.75"
+    filter="url(#starGlow)"
+  />
+</svg>
