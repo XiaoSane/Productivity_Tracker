@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import './globals.css';
 import { AppShell } from '@/components/layout/AppShell';
 import { ServiceWorkerRegister } from '@/components/pwa/ServiceWorkerRegister';
+import { Analytics } from '@vercel/analytics/react';
 
 export const viewport: Viewport = {
   themeColor: [
@@ -49,6 +50,7 @@ export default function RootLayout({
       <body className="min-h-full font-sans bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100">
         <ServiceWorkerRegister />
         <AppShell>{children}</AppShell>
+        <Analytics />
       </body>
     </html>
   );
