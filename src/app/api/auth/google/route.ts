@@ -70,7 +70,8 @@ export async function GET(request: NextRequest) {
     'openid email profile https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/spreadsheets'
   );
   googleAuthUrl.searchParams.set('access_type', 'offline');
-  googleAuthUrl.searchParams.set('prompt', 'consent');
+  googleAuthUrl.searchParams.set('prompt', 'select_account consent');
+  googleAuthUrl.searchParams.set('include_granted_scopes', 'false');
   googleAuthUrl.searchParams.set('state', state);
 
   return NextResponse.redirect(googleAuthUrl.toString());

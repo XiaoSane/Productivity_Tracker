@@ -132,6 +132,36 @@ export async function GET(request: NextRequest) {
     const refreshToken = tokenData.refresh_token;
     const expiresIn = tokenData.expires_in || 3600;
 
+    // Verify required scopes: Drive and Sheets must be granted
+    const rawScopes = (tokenData.scope || '').toLowerCase().split(' ');
+    const hasDriveScope = rawScopes.some(
+      (s: string) => s.includes('auth/drive.file') || s.includes('auth/drive')
+    );
+    const hasSheetsScope = rawScopes.some(
+      (s: string) => s.includes('auth/spreadsheets')
+    );
+
+    if (!hasDriveScope || !hasSheetsScope) {
+      console.warn('[Google OAuth Callback]: Incomplete scopes granted:', tokenData.scope);
+      // Immediately revoke the incomplete token so Google doesn't keep stale permissions
+      if (accessToken) {
+        try {
+          await fetch(`https://oauth2.googleapis.com/revoke?token=${encodeURIComponent(accessToken)}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          });
+        } catch (revErr) {
+          console.warn('[Google OAuth]: Revoke failed:', revErr);
+        }
+      }
+      const errUrl = new URL('/settings', appUrl);
+      errUrl.searchParams.set(
+        'error',
+        'Google Drive and Sheets permissions are required. Please click Connect again and check Select All permissions.'
+      );
+      return NextResponse.redirect(errUrl.toString());
+    }
+
     // 2. Fetch user profile from Google UserInfo
     const userInfoRes = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
       headers: { Authorization: `Bearer ${accessToken}` },

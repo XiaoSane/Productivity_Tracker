@@ -149,12 +149,12 @@ export function ConnectionProvider({ children }: { children: React.ReactNode }) 
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search);
-      if (params.get('setup') === '1') {
+      if (params.get('setup') === '1' || params.get('error')) {
         // Only open wizard if not already fully configured
         if (!isConfigured) {
           setIsWizardOpen(true);
         }
-        // Clean URL parameter without reloading
+        // Clean setup URL parameter without reloading (keep error for display)
         const url = new URL(window.location.href);
         url.searchParams.delete('setup');
         window.history.replaceState({}, '', url.toString());

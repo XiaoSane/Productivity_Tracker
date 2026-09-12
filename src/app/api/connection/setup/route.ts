@@ -148,8 +148,20 @@ export async function POST(request: NextRequest) {
       }
 
       case 'disconnect': {
-        // Safe disconnect: clears local encrypted session cookie
-        // Never deletes user data from Google Drive / Sheets
+        // Safe disconnect: revoke Google OAuth token so Google completely wipes stale/partial permissions
+        if (session.tokens?.accessToken) {
+          try {
+            await fetch(
+              `https://oauth2.googleapis.com/revoke?token=${encodeURIComponent(session.tokens.accessToken)}`,
+              {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+              }
+            );
+          } catch (revErr) {
+            console.warn('[Google Revoke Warning]:', revErr);
+          }
+        }
         await clearSession();
         return NextResponse.json({
           success: true,
@@ -165,13 +177,39 @@ export async function POST(request: NextRequest) {
     }
   } catch (error: unknown) {
     console.error('[Connection Setup Error]:', error);
-    const message =
-      process.env.NODE_ENV === 'production'
-        ? 'Setup step failed. Please try again.'
-        : (error instanceof Error ? error.message : 'Setup step failed.');
+    const errMsg = error instanceof Error ? error.message : String(error);
+    const isPermissionError =
+      errMsg.toLowerCase().includes('insufficient') ||
+      errMsg.toLowerCase().includes('permission') ||
+      errMsg.toLowerCase().includes('403') ||
+      errMsg.toLowerCase().includes('scope') ||
+      errMsg.toLowerCase().includes('access not configured');
+
+    // If permission error, clear out the stale token grant
+    if (isPermissionError) {
+      try {
+        const session = await getSession(request);
+        if (session?.tokens?.accessToken) {
+          await fetch(
+            `https://oauth2.googleapis.com/revoke?token=${encodeURIComponent(session.tokens.accessToken)}`,
+            {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            }
+          );
+        }
+      } catch {}
+    }
+
+    const message = isPermissionError
+      ? 'Google Drive permissions are missing or ungranted. Please click Re-connect below to grant all permissions.'
+      : process.env.NODE_ENV === 'production'
+      ? 'Setup step failed. Please check your Google Drive permissions and try again.'
+      : errMsg;
+
     return NextResponse.json(
-      { success: false, error: message },
-      { status: 500 }
+      { success: false, error: message, needsReauth: isPermissionError },
+      { status: isPermissionError ? 403 : 500 }
     );
   }
 }

@@ -46,6 +46,7 @@ export function SetupWizardModal() {
   const [currentStep, setCurrentStep] = useState<number>(1);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string>('');
+  const [needsReauth, setNeedsReauth] = useState<boolean>(false);
   const [dbResult, setDbResult] = useState<{ spreadsheetId: string; name: string; url?: string } | null>(null);
   const [initializedSheets, setInitializedSheets] = useState<string[]>([]);
   const [candidateName, setCandidateName] = useState<string>('');
@@ -54,6 +55,18 @@ export function SetupWizardModal() {
   useEffect(() => {
     if (!isWizardOpen) return;
     setError('');
+    setNeedsReauth(false);
+
+    if (typeof window !== 'undefined') {
+      const p = new URLSearchParams(window.location.search);
+      const urlErr = p.get('error');
+      if (urlErr) {
+        setError(urlErr);
+        if (urlErr.toLowerCase().includes('permission') || urlErr.toLowerCase().includes('connect')) {
+          setNeedsReauth(true);
+        }
+      }
+    }
 
     if (!isAuthenticated) {
       setCurrentStep(1);
@@ -71,11 +84,25 @@ export function SetupWizardModal() {
 
   if (!isWizardOpen) return null;
 
+  // Re-authenticate and overwrite Google permissions cleanly
+  const handleReauth = async () => {
+    try {
+      setLoading(true);
+      await fetch('/api/connection/setup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ step: 'disconnect' }),
+      });
+    } catch {}
+    window.location.href = '/api/auth/google?returnTo=/settings?setup=1';
+  };
+
   // Step 2: Create / Connect Database in Drive
   const handleCreateDatabase = async () => {
     try {
       setLoading(true);
       setError('');
+      setNeedsReauth(false);
       const res = await fetch('/api/connection/setup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -83,6 +110,9 @@ export function SetupWizardModal() {
       });
       const data = await res.json();
       if (!res.ok || !data.success) {
+        if (data.needsReauth || res.status === 403) {
+          setNeedsReauth(true);
+        }
         throw new Error(data.error || 'Failed to create database spreadsheet.');
       }
       setDbResult({
@@ -104,6 +134,7 @@ export function SetupWizardModal() {
     try {
       setLoading(true);
       setError('');
+      setNeedsReauth(false);
       const res = await fetch('/api/connection/setup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -111,6 +142,9 @@ export function SetupWizardModal() {
       });
       const data = await res.json();
       if (!res.ok || !data.success) {
+        if (data.needsReauth || res.status === 403) {
+          setNeedsReauth(true);
+        }
         throw new Error(data.error || 'Failed to initialize sheets.');
       }
       setInitializedSheets(data.sheets || REQUIRED_SHEETS);
@@ -226,9 +260,27 @@ export function SetupWizardModal() {
         {/* Modal Content */}
         <div className="p-6 sm:p-8">
           {error && (
-            <div className="mb-6 p-4 rounded-xl bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-900/50 flex items-start gap-3 text-rose-700 dark:text-rose-300 text-xs sm:text-sm">
-              <AlertCircle className="w-5 h-5 shrink-0 text-rose-500 mt-0.5" />
-              <span>{error}</span>
+            <div className="mb-6 p-4 rounded-xl bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-900/50 text-rose-700 dark:text-rose-300 text-xs sm:text-sm space-y-3">
+              <div className="flex items-start gap-3">
+                <AlertCircle className="w-5 h-5 shrink-0 text-rose-500 mt-0.5" />
+                <span className="leading-relaxed">{error}</span>
+              </div>
+              {(needsReauth || error.toLowerCase().includes('permission') || error.toLowerCase().includes('connect') || error.toLowerCase().includes('failed')) && (
+                <div className="pt-3 border-t border-rose-200/60 dark:border-rose-900/60 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                  <span className="text-xs text-rose-600 dark:text-rose-400">
+                    Purani permissions overwrite karne ke liye:
+                  </span>
+                  <button
+                    type="button"
+                    onClick={handleReauth}
+                    disabled={loading}
+                    className="px-3.5 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-500 text-white font-medium text-xs shadow-sm transition-all cursor-pointer flex items-center justify-center gap-1.5 shrink-0"
+                  >
+                    <span>Re-connect & Overwrite Permissions</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              )}
             </div>
           )}
 
@@ -336,23 +388,37 @@ export function SetupWizardModal() {
                 </div>
               </div>
 
-              <button
-                onClick={handleCreateDatabase}
-                disabled={loading}
-                className="w-full py-3.5 px-4 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-semibold text-sm shadow-lg shadow-blue-600/30 hover:shadow-blue-600/50 active:scale-98 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60"
-              >
-                {loading ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    <span>Configuring Database in Drive...</span>
-                  </>
-                ) : (
-                  <>
-                    <span>Create & Connect Database</span>
-                    <ArrowRight className="w-4 h-4" />
-                  </>
+              <div className="space-y-2.5">
+                <button
+                  onClick={handleCreateDatabase}
+                  disabled={loading}
+                  className="w-full py-3.5 px-4 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-semibold text-sm shadow-lg shadow-blue-600/30 hover:shadow-blue-600/50 active:scale-98 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60"
+                >
+                  {loading ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>Configuring Database in Drive...</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>Create & Connect Database</span>
+                      <ArrowRight className="w-4 h-4" />
+                    </>
+                  )}
+                </button>
+
+                {needsReauth && (
+                  <button
+                    type="button"
+                    onClick={handleReauth}
+                    disabled={loading}
+                    className="w-full py-2.5 px-4 rounded-xl border border-rose-300 dark:border-rose-800 bg-rose-50/50 dark:bg-rose-950/30 hover:bg-rose-100/50 text-rose-700 dark:text-rose-300 font-medium text-xs transition-all flex items-center justify-center gap-2 cursor-pointer"
+                  >
+                    <span>Reset & Overwrite Google Permissions</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </button>
                 )}
-              </button>
+              </div>
             </div>
           )}
 
